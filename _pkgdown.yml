@@ -1,0 +1,21 @@
+url: https://elisawirsching.github.io/saereg/
+template:
+  bootstrap: 5
+reference:
+  - title: Estimation
+    contents:
+      - saereg
+      - summary.saereg
+      - coef.saereg
+  - title: Building the inputs (Python stages)
+    contents:
+      - embed_texts
+      - train_sae
+      - label_features
+  - title: Data
+    contents:
+      - egami
+articles:
+  - title: Articles
+    contents:
+      - getting_started

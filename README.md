@@ -51,7 +51,7 @@ summary(fit)     # the directions by their share of the effect
 confint(fit)     # effects along the directions, with jackknife intervals
 ```
 
-The vignette walks through all four steps: `vignette("getting_started", package = "saereg")`.
+The [getting-started article](https://elisawirsching.github.io/saereg/articles/getting_started.html) walks through all four steps, with outputs; in R, `vignette("getting_started", package = "saereg")`. Documentation: <https://elisawirsching.github.io/saereg/>.
 
 ## Citation
 

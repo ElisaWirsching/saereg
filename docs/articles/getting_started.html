@@ -200,7 +200,7 @@
 <p>The printout reports the effect on the texts as a whole.</p>
 <ul>
 <li>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mover><mstyle mathvariant="bold"><mi>𝛃</mi></mstyle><mo accent="true">̂</mo></mover><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">\|\hat{\boldsymbol\beta}\|^2</annotation></semantics></math> is the squared length of the effect. Sampling noise inflates it, so <code><a href="../reference/saereg.html">saereg()</a></code> also reports a bias-corrected version with a jackknife interval.</li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">‖</mo><mover><mstyle mathvariant="bold"><mi>𝛃</mi></mstyle><mo accent="true">̂</mo></mover><msup><mo stretchy="false" form="postfix">‖</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">\Vert\hat{\boldsymbol\beta}\Vert^2</annotation></semantics></math> is the squared length of the effect. Sampling noise inflates it, so <code><a href="../reference/saereg.html">saereg()</a></code> also reports a bias-corrected version with a jackknife interval.</li>
 <li>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math> comes from a test of the null hypothesis that the treatment did not change the texts at all. With a randomized treatment and no clusters, <code><a href="../reference/saereg.html">saereg()</a></code> uses the Freedman-Lane permutation test; in observational designs, a cluster bootstrap replaces it.</li>
 <li>

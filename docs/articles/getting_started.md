@@ -257,10 +257,9 @@ fit
 
 The printout reports the effect on the texts as a whole.
 
--   $\\parallel \\widehat{\\mathbf{\\beta}} \\parallel^{2}$ is the
-    squared length of the effect. Sampling noise inflates it, so
-    `saereg()` also reports a bias-corrected version with a jackknife
-    interval.
+-   $\\\|\\widehat{\\mathbf{\\beta}}\\\|^{2}$ is the squared length of
+    the effect. Sampling noise inflates it, so `saereg()` also reports a
+    bias-corrected version with a jackknife interval.
 -   *p* comes from a test of the null hypothesis that the treatment did
     not change the texts at all. With a randomized treatment and no
     clusters, `saereg()` uses the Freedman-Lane permutation test; in

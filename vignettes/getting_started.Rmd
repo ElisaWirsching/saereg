@@ -41,8 +41,8 @@ Steps 1 to 3 run in Python, called from R. They need a Python installation with 
 `pandas`, `pyarrow`, `pyyaml`, `torch`, `hypothesaes`, `tiktoken` and `openai`; tell the package
 where it is once per session.
 
-```{r python-path, eval = FALSE}
-options(saereg.python = "/path/to/python3")
+```r
+options(saereg.python = "/path/to/python3")   # e.g. "~/anaconda3/bin/python3"
 ```
 
 Embedding and labeling call the OpenAI API, which needs a key in the environment variable

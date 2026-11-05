@@ -171,6 +171,12 @@ write_run <- function(dir, cfg, E = NULL, train = NULL, texts = NULL, W = NULL) 
 # last lines of output if it fails. Returns the printed output.
 run_python <- function(args) {
   py <- path.expand(getOption("saereg.python", Sys.getenv("SAEREG_PYTHON", "python3")))
+  if (!nzchar(Sys.which(py))) {           # else system2() fails with "error in running command"
+    stop("Python not found: '", py, "'. Point saereg to a Python with numpy, pandas, pyarrow, ",
+         "pyyaml, torch, hypothesaes, tiktoken and openai, e.g. ",
+         "options(saereg.python = \"~/anaconda3/bin/python3\") or the environment variable ",
+         "SAEREG_PYTHON.", call. = FALSE)
+  }
   pypath <- system.file("python", package = "saereg")
   out <- suppressWarnings(system2(py, args, env = paste0("PYTHONPATH=", shQuote(pypath)),
                                   stdout = TRUE, stderr = TRUE))

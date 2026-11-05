@@ -31,7 +31,7 @@ installation with `numpy`, `pandas`, `pyarrow`, `pyyaml`, `torch`,
 once per session.
 
 ``` r
-options(saereg.python = "/path/to/python3")
+options(saereg.python = "/path/to/python3")   # e.g. "~/anaconda3/bin/python3"
 ```
 
 Embedding and labeling call the OpenAI API, which needs a key in the

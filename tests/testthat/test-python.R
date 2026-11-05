@@ -35,3 +35,9 @@ test_that("label_features and embed_texts: dry runs send nothing", {
   expect_true(all(grepl("GROUP 3 (score percentiles 90-100", p, fixed = TRUE)))
   expect_null(suppressMessages(embed_texts(c("one text", "another text"), dry_run = TRUE)))
 })
+
+test_that("a Python that does not exist stops with a clear message", {
+  old <- options(saereg.python = "/no/such/python3")
+  on.exit(options(old))
+  expect_error(embed_texts("a text", dry_run = TRUE), "Python not found")
+})

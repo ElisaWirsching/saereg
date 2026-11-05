@@ -1,13 +1,8 @@
 # Tests of the Python wrappers (2026-11-05), without API calls: a small SAE trained twice, the
-# label prompts and the embedding plan on dry runs. Skipped unless the interpreter in
-# getOption("saereg.python") / SAEREG_PYTHON has torch and hypothesaes.
+# label prompts and the embedding plan on dry runs. Skipped unless saereg_python() finds a
+# Python with the required modules.
 
-py_ok <- function() {
-  py <- path.expand(getOption("saereg.python", Sys.getenv("SAEREG_PYTHON", "python3")))
-  out <- suppressWarnings(system2(py, c("-c", shQuote("import torch, hypothesaes, tiktoken")),
-                                  stdout = FALSE, stderr = FALSE))
-  identical(out, 0L)
-}
+py_ok <- function() !is.na(saereg_python())
 
 test_that("train_sae: unit decoder directions, K active features, reproducible", {
   skip_if_not(py_ok(), "no Python with torch and hypothesaes")
@@ -36,8 +31,11 @@ test_that("label_features and embed_texts: dry runs send nothing", {
   expect_null(suppressMessages(embed_texts(c("one text", "another text"), dry_run = TRUE)))
 })
 
-test_that("a Python that does not exist stops with a clear message", {
-  old <- options(saereg.python = "/no/such/python3")
+test_that("saereg_python() replaces a Python without the modules by one that has them", {
+  skip_if_not(py_ok(), "no Python with torch and hypothesaes")
+  old <- options(saereg.python = "/no/such/python3", saereg.python.checked = NULL)
   on.exit(options(old))
-  expect_error(embed_texts("a text", dry_run = TRUE), "Python not found")
+  expect_message(p <- saereg_python(), "not a Python with the required modules")
+  expect_false(identical(p, "/no/such/python3"))
+  expect_identical(getOption("saereg.python"), p)
 })

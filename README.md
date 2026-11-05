@@ -26,9 +26,9 @@ remotes::install_github("ElisaWirsching/saereg")
 (`inst/python/saereg_ml`) and need a Python with `numpy`, `pandas`, `pyarrow`, `pyyaml`,
 `torch`, `hypothesaes`, `tiktoken` and `openai`:
 
-```r
-options(saereg.python = "/path/to/python3")   # or set the environment variable SAEREG_PYTHON
-```
+`saereg` looks for such a Python by itself; `saereg_python()` shows which one it uses. To choose
+another: `options(saereg.python = "/path/to/python3")`, or the environment variable
+`SAEREG_PYTHON`.
 
 Embedding and labeling call the OpenAI API: they need a key in the environment variable
 `OPENAI_KEY_SAE` and cost money. With `dry_run = TRUE` they show what they would send without

@@ -27,7 +27,9 @@ package.
 
 Steps 1 to 3 run in Python, called from R. They need a Python
 installation with `numpy`, `pandas`, `pyarrow`, `pyyaml`, `torch`,
-`hypothesaes`, `tiktoken` and `openai`. Tell the package where it is
+`hypothesaes`, `tiktoken` and `openai`. `saereg` looks for one by itself
+(`python3` and the usual Anaconda, Miniconda and Homebrew locations),
+and `saereg_python()` shows which one it uses. To choose another, set it
 once per session, for example:
 
 ``` r

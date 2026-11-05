@@ -10,13 +10,9 @@ vignette: >
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 options(width = 90)
-# The Python steps run only where a Python with the required modules is available; otherwise
+# The Python steps run only where saereg finds a Python with the required modules; otherwise
 # the vignette shows their code and continues with the stored results.
-py <- path.expand(getOption("saereg.python", Sys.getenv("SAEREG_PYTHON", "python3")))
-has_python <- tryCatch(identical(suppressWarnings(system2(
-  py, c("-c", shQuote("import torch, hypothesaes, tiktoken")), stdout = FALSE, stderr = FALSE)),
-  0L), error = function(e) FALSE)
-options(saereg.python = py)
+has_python <- !is.na(saereg::saereg_python())
 ```
 
 Treatments and group differences often change texts in several ways at once. SAE regression
@@ -38,8 +34,10 @@ This vignette goes through the four steps with the data shipped in the package.
 ## Requirements
 
 Steps 1 to 3 run in Python, called from R. They need a Python installation with `numpy`,
-`pandas`, `pyarrow`, `pyyaml`, `torch`, `hypothesaes`, `tiktoken` and `openai`. Tell the package
-where it is once per session, for example:
+`pandas`, `pyarrow`, `pyyaml`, `torch`, `hypothesaes`, `tiktoken` and `openai`. `saereg` looks
+for one by itself (`python3` and the usual Anaconda, Miniconda and Homebrew locations), and
+`saereg_python()` shows which one it uses. To choose another, set it once per session, for
+example:
 
 ```r
 options(saereg.python = "~/anaconda3/bin/python3")

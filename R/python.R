@@ -1,10 +1,9 @@
 # The Python stages (inst/python/saereg_ml) called from R with plain inputs. Each function
 # writes its inputs into a fresh run directory, runs one stage of the Python command line
 # (python -m saereg_ml <stage> --config <dir>/config.yaml) and reads the outputs back. The
-# Python interpreter is getOption("saereg.python"), else the environment variable
-# SAEREG_PYTHON, else "python3"; it needs numpy, pandas, pyarrow, pyyaml, torch, hypothesaes
-# and openai. API calls (embeddings, labels, fidelity) need the key in OPENAI_KEY_SAE and cost
-# money; every such function has `dry_run = TRUE`, which sends nothing.
+# Python interpreter is the one saereg_python() finds. API calls (embeddings, labels, fidelity)
+# need the key in OPENAI_KEY_SAE and cost money; every such function has `dry_run = TRUE`,
+# which sends nothing.
 #
 # Matrices go from R to Python as raw little-endian doubles that Python turns into Parquet with
 # its own writer (decided 2026-11-05): Parquet written by R's arrow 24 cannot be read by
@@ -167,14 +166,50 @@ write_run <- function(dir, cfg, E = NULL, train = NULL, texts = NULL, W = NULL) 
   file.path(dir, "config.yaml")
 }
 
+#' The Python that saereg uses
+#'
+#' Returns the first Python that has the modules the Python stages need (numpy, pandas,
+#' pyarrow, pyyaml, torch, hypothesaes, tiktoken, openai), trying in turn
+#' `getOption("saereg.python")`, the environment variable `SAEREG_PYTHON`, `python3`, and the
+#' usual Anaconda, Miniconda, Miniforge and Homebrew locations. The result is kept in
+#' `options(saereg.python)` for the session. Set that option (or `SAEREG_PYTHON`, e.g. in
+#' `~/.Renviron`) to choose a Python yourself.
+#'
+#' @return The path of the Python, or `NA` if none has the modules.
+#' @export
+saereg_python <- function() {
+  set <- getOption("saereg.python", "")
+  if (nzchar(set) && identical(set, getOption("saereg.python.checked"))) return(set)
+  wanted <- c(set, Sys.getenv("SAEREG_PYTHON", ""))
+  wanted <- path.expand(wanted[nzchar(wanted)])
+  cand <- unique(c(wanted, "python3", path.expand(c(
+    "~/anaconda3/bin/python3", "~/miniconda3/bin/python3", "~/miniforge3/bin/python3",
+    "~/mambaforge/bin/python3", "/opt/anaconda3/bin/python3", "/opt/miniconda3/bin/python3",
+    "/opt/homebrew/bin/python3", "/usr/local/bin/python3"))))
+  imports <- "import numpy, pandas, pyarrow, yaml, torch, hypothesaes, tiktoken, openai"
+  for (p in cand) {
+    ok <- nzchar(Sys.which(p)) && identical(suppressWarnings(system2(
+      p, c("-c", shQuote(imports)), stdout = FALSE, stderr = FALSE)), 0L)
+    if (ok) {
+      if (length(wanted) && !p %in% wanted) {
+        message("saereg: '", wanted[1], "' is not a Python with the required modules; ",
+                "using '", p, "'.")
+      }
+      options(saereg.python = p, saereg.python.checked = p)
+      return(p)
+    }
+  }
+  NA_character_
+}
+
 # Runs the Python interpreter with the package's Python module on the path; stops with the
 # last lines of output if it fails. Returns the printed output.
 run_python <- function(args) {
-  py <- path.expand(getOption("saereg.python", Sys.getenv("SAEREG_PYTHON", "python3")))
-  if (!nzchar(Sys.which(py))) {           # else system2() fails with "error in running command"
-    stop("Python not found: '", py, "'. Point saereg to a Python with numpy, pandas, pyarrow, ",
-         "pyyaml, torch, hypothesaes, tiktoken and openai, e.g. ",
-         "options(saereg.python = \"~/anaconda3/bin/python3\") or the environment variable ",
+  py <- saereg_python()
+  if (is.na(py)) {
+    stop("No Python with numpy, pandas, pyarrow, pyyaml, torch, hypothesaes, tiktoken and ",
+         "openai found. Install them, or point saereg to such a Python: ",
+         "options(saereg.python = \"/path/to/python3\") or the environment variable ",
          "SAEREG_PYTHON.", call. = FALSE)
   }
   pypath <- system.file("python", package = "saereg")

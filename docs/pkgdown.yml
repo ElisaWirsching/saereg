@@ -1,9 +1,0 @@
-pandoc: '2.12'
-pkgdown: 2.2.0
-pkgdown_sha: ~
-articles:
-  getting_started: getting_started.html
-last_built: 2026-11-05T14:15Z
-urls:
-  reference: https://elisawirsching.github.io/saereg/reference
-  article: https://elisawirsching.github.io/saereg/articles

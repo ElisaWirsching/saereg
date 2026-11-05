@@ -7,7 +7,7 @@ Description: SAE regression: regresses document embeddings on a design (covariat
     cluster bootstrap), and decomposes it onto the decoder directions of a sparse
     autoencoder, with jackknife intervals (documents or clusters) and shares of the effect.
 License: GPL-3
-URL: https://github.com/ElisaWirsching/saereg, https://elisawirsching.github.io/saereg/
+URL: https://github.com/ElisaWirsching/saereg
 BugReports: https://github.com/ElisaWirsching/saereg/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

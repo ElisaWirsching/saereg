@@ -1,0 +1,65 @@
+# saereg: SAE regression
+
+Treatments and group differences often change texts in several ways at once. **SAE regression**
+estimates such an effect on texts and decomposes it into interpretable directions:
+
+1. **Embed** the texts with a language model (`embed_texts()`).
+2. **Learn directions** with a sparse autoencoder (SAE) trained on one half of the texts
+   (`train_sae()`).
+3. **Label** the directions with a large language model, from the training texts that score
+   highest on them (`label_features()`).
+4. **Estimate and decompose** on the other half (`saereg()`): the effect on the average text,
+   a global test, and, for each direction, how far the texts move towards or away from it and
+   what share of the effect it explains.
+
+`saereg()` works like a regression. Covariates, absorbed fixed effects and clustered designs
+(e.g. difference-in-differences) are supported.
+
+## Installation
+
+```r
+# install.packages("remotes")
+remotes::install_github("ElisaWirsching/saereg")
+```
+
+`saereg()` needs only R. Steps 1 to 3 run the package's Python stages
+(`inst/python/saereg_ml`) and need a Python with `numpy`, `pandas`, `pyarrow`, `pyyaml`,
+`torch`, `hypothesaes`, `tiktoken` and `openai`:
+
+```r
+options(saereg.python = "/path/to/python3")   # or set the environment variable SAEREG_PYTHON
+```
+
+Embedding and labeling call the OpenAI API: they need a key in the environment variable
+`OPENAI_KEY_SAE` and cost money. With `dry_run = TRUE` they show what they would send without
+sending it.
+
+## Example
+
+The package ships the open-ended answers of a survey experiment on immigration and punishment
+(Egami et al. 2022), with their embeddings and an SAE trained on the training half.
+
+```r
+library(saereg)
+d <- egami$data
+E <- egami$E
+test <- !d$train
+
+fit <- saereg(E[test, ] ~ treat, data = d[test, ], W = egami$W, labels = egami$labels)
+fit              # the overall effect: squared norm, bias-corrected, global test, R^2
+summary(fit)     # the directions by their share of the effect
+confint(fit)     # effects along the directions, with jackknife intervals
+```
+
+The vignette walks through all four steps: `vignette("getting_started", package = "saereg")`.
+
+## Citation
+
+Wirsching, E. M. (2026). What moved? Interpretable decompositions of effects on text with
+sparse autoencoders. Working paper.
+
+## Licence and data
+
+GPL-3. The example data come from the replication data of Egami, Fong, Grimmer, Roberts and
+Stewart (2022), "How to make causal inferences using texts", *Science Advances* 8, Harvard
+Dataverse, doi:10.7910/DVN/QHJN8V (CC0 1.0).

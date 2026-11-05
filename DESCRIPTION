@@ -1,0 +1,29 @@
+Package: saereg
+Title: Embedding Regression with Sparse-Autoencoder Projection
+Version: 0.2.0
+Authors@R: person("Elisa", "Wirsching", email = "e.m.wirsching@lse.ac.uk", role = c("aut", "cre"))
+Description: SAE regression: regresses document embeddings on a design (covariates and
+    absorbed fixed effects allowed), tests the effect of a term globally (permutation or
+    cluster bootstrap), and decomposes it onto the decoder directions of a sparse
+    autoencoder, with jackknife intervals (documents or clusters) and shares of the effect.
+License: GPL-3
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    arrow,
+    fixest,
+    parallel,
+    stats,
+    tibble,
+    utils,
+    yaml
+Suggests:
+    knitr,
+    rmarkdown,
+    sandwich,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+LazyData: true
+LazyDataCompression: xz
+VignetteBuilder: knitr

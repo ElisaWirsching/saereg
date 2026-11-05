@@ -1,0 +1,239 @@
+---
+title: "Getting started with saereg"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with saereg}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(width = 90)
+# The Python steps run only where a Python with the required modules is available; otherwise
+# the vignette shows their code and continues with the stored results.
+py <- path.expand(getOption("saereg.python", Sys.getenv("SAEREG_PYTHON", "python3")))
+has_python <- tryCatch(identical(suppressWarnings(system2(
+  py, c("-c", shQuote("import torch, hypothesaes, tiktoken")), stdout = FALSE, stderr = FALSE)),
+  0L), error = function(e) FALSE)
+options(saereg.python = py)
+```
+
+Treatments and group differences often change texts in several ways at once. SAE regression
+estimates such an effect on texts and decomposes it into interpretable directions, in four
+steps.
+
+1. **Embed** each text, so that it becomes a vector that represents its meaning.
+2. **Learn directions** in that space with a sparse autoencoder (SAE), trained on one half of
+   the texts. Each direction tends to capture one recurring concept, such as an argument.
+3. **Label** each direction with a large language model or a human reader, from the training
+   texts that score highest on it.
+4. **Estimate and decompose** on the other half. Regress the embeddings on the treatment. The
+   coefficient vector is the effect on the average text; projected onto each direction, it
+   shows how far the texts move towards or away from the direction and what share of the
+   effect the direction explains.
+
+This vignette goes through the four steps with the data shipped in the package.
+
+## Requirements
+
+Steps 1 to 3 run in Python, called from R. They need a Python installation with `numpy`,
+`pandas`, `pyarrow`, `pyyaml`, `torch`, `hypothesaes`, `tiktoken` and `openai`; tell the package
+where it is once per session.
+
+```{r python-path, eval = FALSE}
+options(saereg.python = "/path/to/python3")
+```
+
+Embedding and labeling call the OpenAI API, which needs a key in the environment variable
+`OPENAI_KEY_SAE` and costs money. With `dry_run = TRUE` the functions show what they would send
+without sending it, which is what this vignette does; the package data hold what the real
+calls returned. Step 4 needs only R.
+
+## The data
+
+`egami` holds the open-ended answers from Experiment 3 of Egami et al. (2022). Respondents read
+about a 28-year-old man convicted of entering the United States illegally. In the treatment
+condition (`treat = 1`), he had previously served two prison sentences, one for a violent
+crime, and had been deported. In the control condition, he had never been imprisoned.
+Respondents then explained what the US government should do and why. The answers were split at
+random into a training half and a test half, as in Egami et al.
+
+```{r data}
+library(saereg)
+d <- egami$data
+table(train = d$train, treat = d$treat)
+substr(d$text[1:3], 1, 80)
+```
+
+## Step 1: embed the texts
+
+`embed_texts()` sends the texts to an OpenAI embedding model (by default
+`text-embedding-3-large`, 3,072 dimensions) and returns one row per text.
+
+```{r embed, eval = has_python}
+embed_texts(d$text, dry_run = TRUE)
+```
+
+Without `dry_run`, `embed_texts(d$text)` returns the matrix. `egami$E` is what it returned.
+
+```{r embed-stored}
+E <- egami$E
+dim(E)
+```
+
+## Step 2: learn directions with a sparse autoencoder
+
+`train_sae()` trains the SAE on the rows marked `train` and returns its decoder directions
+`W` (one column per direction) and the activations of all texts. `M` is the number of
+directions and `K` the number active per text; the answers are short (32 words at the median),
+so `K = 2`.
+
+```{r sae, eval = has_python}
+sae <- train_sae(E, M = 7, K = 2, seed = 7, train = d$train)
+dim(sae$W)
+max(abs(sae$W - egami$W))
+```
+
+With the same seed and hardware, training reproduces the SAE exactly, as the last line shows on
+the machine that built the package data. On other hardware the directions can differ slightly,
+so the rest of the vignette uses the stored ones.
+
+```{r sae-stored}
+W <- egami$W
+```
+
+## Step 3: label the directions
+
+For each direction, `label_features()` ranks the training texts by their score on it and shows
+a language model random texts from the bottom 10%, the middle and the top 10%. The model names
+what the top texts do that the others do not. Here is the prompt for direction 2.
+
+```{r label, eval = has_python}
+prompts <- label_features(d$text[d$train], E[d$train, ], W, dry_run = TRUE)
+cat(prompts[3])
+```
+
+With `fidelity = TRUE` and without `dry_run`, `label_features()` sends the prompts to `gpt-4.1`
+and then checks each label on training texts the labeler did not see: precision and recall
+measure how well the label picks out the direction's top texts. The stored labels are what it
+returned.
+
+```{r labels}
+print(data.frame(feature = 0:6, f1 = round(egami$fidelity$f1, 2),
+                 label = substr(egami$labels, 1, 70)), right = FALSE)
+```
+
+## Step 4: estimate and decompose the effect
+
+`saereg()` takes a regression formula with the embedding matrix on the left, the data, and the
+decoder directions `W`. It is estimated on the test half, which neither the SAE nor the labels
+have seen.
+
+```{r fit}
+test <- !d$train
+fit <- saereg(E[test, ] ~ treat, data = d[test, ], W = W, labels = egami$labels,
+              activations = egami$activations[test, ], draws = 999)
+fit
+```
+
+The printout reports the effect on the texts as a whole.
+
+* $\|\hat{\boldsymbol\beta}\|^2$ is the squared length of the effect. Sampling noise inflates
+  it, so `saereg()` also reports a bias-corrected version with a jackknife interval.
+* $p$ comes from a test of the null hypothesis that the treatment did not change the texts at
+  all. With a randomized treatment and no clusters, `saereg()` uses the Freedman-Lane
+  permutation test; in observational designs, a cluster bootstrap replaces it.
+* $R^2$ is the share of the effect that the seven directions describe jointly.
+
+Here the treatment clearly changed the answers, and the seven directions describe
+`r round(100 * fit$joint$R2_cor)`% of the effect (bias-corrected).
+
+### Which directions moved
+
+`summary()` lists the directions by their share of the effect, `q_j_cor`, with `delta`
+(defined below) and its interval.
+
+```{r summary}
+summary(fit)
+```
+
+For each direction $\mathbf{w}_j$, `fit$features` holds three main quantities.
+
+* `alpha` is how far the average answer moves towards ($> 0$) or away from ($< 0$)
+  $\mathbf{w}_j$.
+* `delta` is the same movement with the other directions held fixed. The directions overlap,
+  so `delta` separates them; it is the default of `coef()` and `confint()`.
+* `q_j_cor` is the direction's bias-corrected share of the effect. The shares add up to $R^2$.
+  A negative share is possible when two overlapping directions move in opposite ways.
+
+```{r top, include = FALSE}
+top <- fit$features[order(-fit$features$q_j_cor), ][1, ]
+```
+
+The largest share, `r round(top$q_j_cor, 2)`, goes to direction `r top$feature`, labeled
+"`r top$label`". Respondents who read about the man's criminal history move towards it
+($\hat\delta =$ `r round(top$delta, 3)`, 95% CI `r round(top$delta_lo, 3)` to
+`r round(top$delta_hi, 3)`). A negative estimate means that answers move away from a
+direction. It does not mean that they express the opposite of its label.
+
+`coef()` and `confint()` return the estimates and their jackknife intervals, at any level.
+
+```{r coef}
+round(cbind(delta = coef(fit), confint(fit, level = 0.90)), 3)
+```
+
+All columns, including the effects on the SAE's activations (`gamma`, `on_shift`), are in
+`fit$features`; the joint shares of all directions and of the top two and three are in
+`fit$joint`.
+
+```{r plot, fig.width = 7, fig.height = 3.6, fig.alt = "Effect of the treatment along each SAE direction, with 95% intervals"}
+ft <- fit$features[order(fit$features$q_j_cor), ]
+lab <- ifelse(nchar(ft$label) > 50, paste0(substr(ft$label, 1, 47), "..."), ft$label)
+op <- par(mar = c(4, 22, 1, 1), cex = 0.8)
+plot(ft$delta, seq_along(lab), xlim = range(ft$delta_lo, ft$delta_hi, 0), pch = 19,
+     yaxt = "n", ylab = "", xlab = "Effect along the direction (delta), 95% CI")
+segments(ft$delta_lo, seq_along(lab), ft$delta_hi, seq_along(lab))
+abline(v = 0, lty = 2, col = "grey50")
+axis(2, at = seq_along(lab), labels = lab, las = 1)
+par(op)
+```
+
+### Reading a direction
+
+A label is a candidate name for a direction. It is worth checking against the test answers that
+score highest on the direction, $s_{ij} = \mathbf{e}_i^\top \mathbf{w}_j$.
+
+```{r read}
+s <- E[test, ] %*% W
+j <- top$feature + 1                  # directions are numbered from 0
+substr(d$text[test][order(-s[, j])[1:3]], 1, 120)
+```
+
+## Other designs
+
+The formula takes covariates and absorbed fixed effects as in `fixest`. With fixed effects,
+give the clusters; the intervals then come from a leave-one-cluster-out jackknife and the
+global test from a cluster bootstrap. The code below is illustrative and is not run.
+
+```{r designs, eval = FALSE}
+# covariates
+saereg(E ~ treat + age + female, data = d, W = W)
+
+# stacked difference-in-differences: unit-by-stack and day-by-stack fixed effects,
+# bootstrap by unit within treated and never-treated units
+saereg(E ~ treated_post | unit_stack + day_stack, data = panel, W = W,
+       cluster = ~ unit, strata = ~ ever_treated, test = "bootstrap", cores = 8)
+
+# several effects in one regression, decomposed one by one
+saereg(E ~ treated_dem + treated_rep | unit_stack + day_stack, data = panel, W = W,
+       term = c("treated_dem", "treated_rep"), cluster = ~ unit, test = "bootstrap")
+```
+
+## References
+
+Egami, N., Fong, C. J., Grimmer, J., Roberts, M. E., and Stewart, B. M. (2022). How to make
+causal inferences using texts. *Science Advances*, 8(42).
+
+Wirsching, E. M. (2026). What moved? Interpretable decompositions of effects on text with
+sparse autoencoders. Working paper.

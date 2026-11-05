@@ -1,0 +1,10 @@
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+inst/doc/
+*.Rcheck/
+saereg_*.tar.gz
+__pycache__/
+*.pyc
+.DS_Store

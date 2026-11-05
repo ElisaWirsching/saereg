@@ -38,11 +38,11 @@ This vignette goes through the four steps with the data shipped in the package.
 ## Requirements
 
 Steps 1 to 3 run in Python, called from R. They need a Python installation with `numpy`,
-`pandas`, `pyarrow`, `pyyaml`, `torch`, `hypothesaes`, `tiktoken` and `openai`; tell the package
-where it is once per session.
+`pandas`, `pyarrow`, `pyyaml`, `torch`, `hypothesaes`, `tiktoken` and `openai`. Tell the package
+where it is once per session, for example:
 
 ```r
-options(saereg.python = "/path/to/python3")   # e.g. "~/anaconda3/bin/python3"
+options(saereg.python = "~/anaconda3/bin/python3")
 ```
 
 Embedding and labeling call the OpenAI API, which needs a key in the environment variable

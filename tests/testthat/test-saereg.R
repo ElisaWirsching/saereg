@@ -111,6 +111,30 @@ test_that("rows: shared embeddings give the same fit as the expanded matrix", {
   expect_equal(a$beta, b$beta, tolerance = 1e-10)
   expect_equal(a$features$delta_se, b$features$delta_se, tolerance = 1e-10)
   expect_equal(a$null, b$null, tolerance = 1e-10)
+  expect_equal(a$s, b$s, tolerance = 1e-10)
+  expect_equal(a$s_tilde, b$s_tilde, tolerance = 1e-10)
+})
+
+test_that("scores: one row per row of data, and their regressions give alpha and delta", {
+  s <- sim(10); d <- s$d; E <- s$E; W <- s$W
+  d$x[c(3L, 50L)] <- NA                                          # two rows are dropped
+  fit <- saereg(E ~ treat + x, data = d, W = W, draws = 9L)
+  expect_identical(dim(fit$s), c(nrow(d), ncol(W)))
+  expect_identical(colnames(fit$s_tilde), paste0("f", 0:3))
+  expect_identical(which(rowSums(is.na(fit$s)) > 0), c(3L, 50L))
+  expect_identical(which(rowSums(is.na(fit$s_tilde)) > 0), c(3L, 50L))
+  expect_equal(unname(fit$s[1, ]), drop(E[1, ] %*% W), tolerance = 1e-12)
+  expect_equal(unname(fit$s_tilde[1, ]), drop(solve(crossprod(W), crossprod(W, E[1, ]))),
+               tolerance = 1e-12)
+  expect_equal(unname(coef(lm(fit$s ~ treat + x, data = d))["treat", ]), fit$features$alpha,
+               tolerance = 1e-10)
+  expect_equal(unname(coef(lm(fit$s_tilde ~ treat + x, data = d))["treat", ]), fit$features$delta,
+               tolerance = 1e-10)
+  # the same with absorbed fixed effects
+  fe <- saereg(E ~ treat | id + t, data = d, W = W, cluster = ~ id, test = "bootstrap",
+               draws = 9L)
+  a4 <- coef(fixest::feols(y ~ treat | id + t, data = transform(d, y = fe$s[, 4])))[["treat"]]
+  expect_equal(a4, fe$features$alpha[4], tolerance = 1e-8)
 })
 
 test_that("activations: gamma is the term's coefficient on a_ij", {

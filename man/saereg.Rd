@@ -62,8 +62,8 @@ a member-day's mean in several stacks).}
 }
 \value{
 An object of class \code{saereg}: \code{global}, \code{features}, \code{joint} (tibbles), \code{beta}
-(dimensions x terms), \code{V_alpha} (per term), \code{null} (the test's draws of the statistic,
-draws x terms), and the settings.
+(dimensions x terms), \code{s} and \code{s_tilde} (rows of \code{data} x directions), \code{V_alpha} (per
+term), \code{null} (the test's draws of the statistic, draws x terms), and the settings.
 }
 \description{
 Regresses the document embeddings on a design (OLS, covariates and absorbed fixed effects
@@ -103,4 +103,9 @@ form over documents without \code{cluster}, refits leaving out one cluster with 
 \strong{Joint shares} (\code{joint}): R^2 = t(alpha) G^-1 alpha / ||beta||^2, the share of the effect
 in the span of all directions, raw and corrected; the same for the two and three
 directions with the largest \code{q_j_cor} (biased upward by that selection).
+
+\strong{Scores} (\code{s}, \code{s_tilde}; one row per row of \code{data}, \code{NA} for rows dropped for missing
+values, one column per direction): \code{s} holds s_ij = t(e_i) w_j, how far text i reaches along
+w_j; \code{s_tilde} holds its coordinates G^-1 s_i, with the overlap between directions removed.
+Regressing them on the design gives \code{alpha} and \code{delta}.
 }

@@ -33,6 +33,11 @@
 #' in the span of all directions, raw and corrected; the same for the two and three
 #' directions with the largest `q_j_cor` (biased upward by that selection).
 #'
+#' **Scores** (`s`, `s_tilde`; one row per row of `data`, `NA` for rows dropped for missing
+#' values, one column per direction): `s` holds s_ij = t(e_i) w_j, how far text i reaches along
+#' w_j; `s_tilde` holds its coordinates G^-1 s_i, with the overlap between directions removed.
+#' Regressing them on the design gives `alpha` and `delta`.
+#'
 #' @param formula `E ~ treat + covariates | fe1 + fe2`. The left side is the embedding matrix
 #'   (documents x dimensions), found in `data` or in the formula's environment. Fixed effects
 #'   after `|` are absorbed (`fixest::demean()`); combine variables beforehand for
@@ -58,8 +63,8 @@
 #'   a member-day's mean in several stacks).
 #' @param cores Cores for the jackknife and bootstrap refits (`parallel::mclapply`).
 #' @return An object of class `saereg`: `global`, `features`, `joint` (tibbles), `beta`
-#'   (dimensions x terms), `V_alpha` (per term), `null` (the test's draws of the statistic,
-#'   draws x terms), and the settings.
+#'   (dimensions x terms), `s` and `s_tilde` (rows of `data` x directions), `V_alpha` (per
+#'   term), `null` (the test's draws of the statistic, draws x terms), and the settings.
 #' @export
 saereg <- function(formula, data, W, term = NULL, cluster = NULL, strata = NULL,
                    test = c("permutation", "bootstrap"), draws = 999L, seed = 7L,
@@ -273,12 +278,24 @@ saereg <- function(formula, data, W, term = NULL, cluster = NULL, strata = NULL,
                                top3 = js[1, 3], top3_cor = js[2, 3])
     V_alpha[[k]] <- V
   }
+
+  # ---- 5. Scores -----------------------------------------------------------------------
+  # Per row of `data`, the outcomes whose regressions on the design give alpha and delta. Rows
+  # dropped above stay in as NA, so the matrices line up with `data` (added 2026-11-09, EW).
+  # Multiplied before indexing, because E[rows, ] would copy all of E.
+  S <- E %*% W
+  if (!is.null(rows)) S <- S[rows, , drop = FALSE]
+  s <- s_tilde <- matrix(NA_real_, nrow(data), M,
+                         dimnames = list(NULL, paste0("f", seq_len(M) - 1L)))
+  s[keep, ] <- S
+  s_tilde[keep, ] <- S %*% Ginv
+
   structure(list(call = call, formula = formula, term = term, n = n,
                  n_clusters = if (is.null(cluster)) NA_integer_ else G,
                  n_dropped = sum(!keep), test = test, draws = draws, seed = seed,
                  level = level, global = do.call(rbind, glob),
                  features = do.call(rbind, feat), joint = do.call(rbind, jnt),
-                 beta = beta, V_alpha = V_alpha, null = stat),
+                 beta = beta, s = s, s_tilde = s_tilde, V_alpha = V_alpha, null = stat),
             class = "saereg")
 }
 

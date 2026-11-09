@@ -194,6 +194,61 @@ print(data.frame(feature = 0:6, f1 = round(egami$fidelity$f1, 2),
 #> 7 asks for or considers the immigrant’s personal reasons or circumstances for entering the country
 ```
 
+### Using your own prompt
+
+The default prompt knows nothing about your study, which is deliberate.
+You can replace it with the `prompt` argument, for example to say what
+kind of texts these are or to ask for labels in another form. Write it
+as a template with these placeholders, which `label_features()` fills in
+for each direction.
+
+-   `{groups}` is required. It is where the sampled texts go, in groups
+    from the lowest scores to the highest.
+-   `{n_bins}` is the number of groups, so the top-scoring texts are in
+    Group `{n_bins}`.
+-   `{max_label_words}` is the word limit, 15 unless you change it in
+    `settings`.
+
+End the prompt by asking for the answer in the form `LABEL: "<label>"`.
+The label is read from that line; without it, the model’s whole reply
+becomes the label, and the function warns you.
+
+``` r
+my_prompt <- 'These are open-ended survey answers.
+
+{groups}
+
+What do the answers in Group {n_bins} argue that the other groups do not?
+Use at most {max_label_words} words.
+Answer in exactly this format and nothing else:
+LABEL: "<label>"'
+
+custom <- label_features(d$text[d$train], E[d$train, ], W, prompt = my_prompt, dry_run = TRUE)
+cat(substr(custom[3], 1, 200), "...\n")
+#> These are open-ended survey answers.
+#> 
+#> GROUP 1 (score percentiles 0-10; 7 of 53 texts shown):
+#> - If anything, the person should be deported if they illegally entered the country. The government should w ...
+cat("...", substring(custom[3], nchar(custom[3]) - 160))
+#> ... ecord.
+#> 
+#> What do the answers in Group 3 argue that the other groups do not?
+#> Use at most 15 words.
+#> Answer in exactly this format and nothing else:
+#> LABEL: "<label>"
+```
+
+With `dry_run = TRUE` you can read the filled-in prompts before sending
+anything. On a real run, the `prompt` column of the result records what
+was sent.
+
+Two cautions apply. Keep the treatment and your hypotheses out of the
+prompt, so that the labels are learned from the texts alone. And only
+the default prompt has been compared with human labels, so use
+`fidelity = TRUE` to check how well labels from your own prompt pick out
+their direction’s texts. The fidelity prompt stays fixed, which keeps
+the scores comparable across prompts.
+
 ## Step 4: estimate and decompose the effect
 
 `saereg()` takes a regression formula with the embedding matrix on the

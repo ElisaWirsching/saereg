@@ -113,3 +113,22 @@ test_that("train_sae: the settings are saved, and a version warning reaches R", 
   })
   expect_warning(train_sae(E, M = 6, K = 2, seed = 3L), "hypothesaes 9 is installed")
 })
+
+test_that("label_features: a custom prompt is filled in, and checked before anything is sent", {
+  E <- matrix(rnorm(200 * 8), 200, 8)
+  W <- apply(matrix(rnorm(8 * 3), 8, 3), 2, function(w) w / sqrt(sum(w^2)))
+  texts <- paste("text {n_bins} number", seq_len(200))         # a placeholder inside the texts
+  expect_error(label_features(texts, E, W, prompt = "No texts here. LABEL:", dry_run = TRUE),
+               "must contain \\{groups\\}")
+  skip_if_not(py_ok(), "no Python with torch and hypothesaes")
+  tpl <- 'Texts:\n{groups}\nGroup {n_bins}, {max_label_words} words, {other}.\nLABEL: "<label>"'
+  p <- label_features(texts, E, W, prompt = tpl, dry_run = TRUE,
+                      settings = list(max_label_words = 9L))
+  expect_length(p, 3L)
+  expect_true(all(startsWith(p, "Texts:\nGROUP 1 (score percentiles 0-10")))
+  expect_true(all(grepl("Group 3, 9 words, {other}.", p, fixed = TRUE)))
+  expect_true(all(grepl("- text {n_bins} number", p, fixed = TRUE)))
+  expect_false(any(grepl("{groups}", p, fixed = TRUE)))
+  expect_warning(label_features(texts, E, W, prompt = "{groups} Name it.", dry_run = TRUE),
+                 "LABEL")
+})

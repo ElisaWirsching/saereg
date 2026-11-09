@@ -10,6 +10,7 @@ label_features(
   W,
   fidelity = FALSE,
   dry_run = FALSE,
+  prompt = NULL,
   model = "gpt-4.1",
   seed = 7L,
   settings = list(),
@@ -26,6 +27,14 @@ label_features(
 \item{fidelity}{Also run the fidelity test (100 API calls per direction by default)?}
 
 \item{dry_run}{\code{TRUE} returns the prompts without calling the API.}
+
+\item{prompt}{Optional template that replaces the default labelling prompt (\code{dry_run = TRUE}
+shows the default filled in). It must contain \code{{groups}}, where the sampled texts go, and
+should ask for the answer as \code{LABEL: "<label>"}, the line the label is read from. It can
+use \code{{n_bins}} (the number of groups; the last holds the top-scoring texts) and
+\code{{max_label_words}}. Only the default prompt was compared with human labels: check another
+one with \code{fidelity = TRUE}, whose prompt stays fixed. Keep the treatment and your
+hypotheses out of the prompt, so that the labels are learned without them.}
 
 \item{model, seed}{Labelling model and seed of the text sampling (direction j: seed + j).}
 

@@ -100,6 +100,13 @@ train_sae <- function(E, M, K, seed = 7L, train = rep(TRUE, nrow(E)),
 #' @param W Decoder directions (dimensions x M).
 #' @param fidelity Also run the fidelity test (100 API calls per direction by default)?
 #' @param dry_run `TRUE` returns the prompts without calling the API.
+#' @param prompt Optional template that replaces the default labelling prompt (`dry_run = TRUE`
+#'   shows the default filled in). It must contain `{groups}`, where the sampled texts go, and
+#'   should ask for the answer as `LABEL: "<label>"`, the line the label is read from. It can
+#'   use `{n_bins}` (the number of groups; the last holds the top-scoring texts) and
+#'   `{max_label_words}`. Only the default prompt was compared with human labels: check another
+#'   one with `fidelity = TRUE`, whose prompt stays fixed. Keep the treatment and your
+#'   hypotheses out of the prompt, so that the labels are learned without them.
 #' @param model,seed Labelling model and seed of the text sampling (direction j: seed + j).
 #' @param settings Optional list overriding the defaults: `bins`, `n_per_bin` (7),
 #'   `max_words` (256), `max_label_words` (15), `temperature` (0), `n_top` and `n_lower` (50
@@ -109,15 +116,27 @@ train_sae <- function(E, M, K, seed = 7L, train = rep(TRUE, nrow(E)),
 #'   and `model_used` (the model version the API reports), plus `precision`, `recall`, `f1` and
 #'   `fidelity_model_used` with `fidelity = TRUE`; on a dry run, the prompts (character vector).
 #' @export
-label_features <- function(texts, E, W, fidelity = FALSE, dry_run = FALSE, model = "gpt-4.1",
-                           seed = 7L, settings = list(), dir = tempfile("saereg_label_")) {
+label_features <- function(texts, E, W, fidelity = FALSE, dry_run = FALSE, prompt = NULL,
+                           model = "gpt-4.1", seed = 7L, settings = list(),
+                           dir = tempfile("saereg_label_")) {
   stopifnot(length(texts) == nrow(E), nrow(W) == ncol(E), !anyNA(texts))
+  if (!is.null(prompt)) {
+    stopifnot(is.character(prompt), length(prompt) == 1L, !is.na(prompt))
+    if (!grepl("{groups}", prompt, fixed = TRUE)) {
+      stop("`prompt` must contain {groups}, where the sampled texts go", call. = FALSE)
+    }
+    if (!grepl("LABEL:", prompt, fixed = TRUE)) {
+      warning("`prompt` does not ask for a 'LABEL:' line, so the model's whole reply will be ",
+              "kept as the label", call. = FALSE)
+    }
+  }
   st <- utils::modifyList(list(bins = list(c(0L, 10L), c(45L, 55L), c(90L, 100L)),
                                n_per_bin = 7L, max_words = 256L, max_label_words = 15L,
                                temperature = 0, n_top = 50L, n_lower = 50L), settings)
   cfg <- list(labels = list(model = model, temperature = st$temperature, bins = st$bins,
                             n_per_bin = st$n_per_bin, max_words = st$max_words,
-                            max_label_words = st$max_label_words, seed = as.integer(seed)),
+                            max_label_words = st$max_label_words, seed = as.integer(seed),
+                            prompt = prompt),
               fidelity = list(model = model, temperature = st$temperature, n_top = st$n_top,
                               n_lower = st$n_lower, max_words = st$max_words,
                               seed = as.integer(seed)))

@@ -115,8 +115,12 @@ def build_prompts(cfg, texts=None, E=None, W=None):
             groups.append(f"GROUP {g + 1} (score percentiles {lo:.0f}-{hi:.0f}; "
                           f"{len(pick)} of {len(idx)} texts shown):\n" +
                           "\n".join(f"- {_cut(texts[i], lab['max_words'])}" for i in pick))
-        prompts.append(PROMPT.format(n_bins=len(bins), groups="\n\n".join(groups),
-                                     max_label_words=lab["max_label_words"]))
+        # filled literally, so other braces are left alone; the texts go last so that a
+        # placeholder inside a text stays as written
+        prompts.append((lab.get("prompt") or PROMPT)
+                       .replace("{n_bins}", str(len(bins)))
+                       .replace("{max_label_words}", str(lab["max_label_words"]))
+                       .replace("{groups}", "\n\n".join(groups)))
     return prompts
 
 

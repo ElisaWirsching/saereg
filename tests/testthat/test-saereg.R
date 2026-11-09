@@ -52,7 +52,7 @@ test_that("fixed effects: beta equals feols, the weights sum to zero within each
     coef(fixest::feols(y ~ treat + x | id + t, data = transform(d, y = E[, k])))[["treat"]]
   }, numeric(1))
   expect_equal(unname(fit$beta[, 1]), b_fe, tolerance = 1e-8)
-  w <- drop(fit$weights)
+  w <- drop(fwl_weights(cbind(treat = d$treat, x = d$x), "treat", list(d$id, d$t)))
   expect_lt(max(abs(tapply(w, d$id, sum))), 1e-10)
   expect_lt(max(abs(tapply(w, d$t, sum))), 1e-10)
   expect_equal(sum(w * d$treat), 1, tolerance = 1e-10)

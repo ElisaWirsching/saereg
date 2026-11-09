@@ -56,21 +56,21 @@ draw b uses \code{set.seed(seed + b)}, so any draw can be re-run on its own.}
 \item{labels}{Optional labels of the M directions.}
 
 \item{rows}{Optional row of \code{E} for each row of \code{data}, when rows share an embedding (e.g.
-a member-day's mean in several stacks); their weights are summed per embedding.}
+a member-day's mean in several stacks).}
 
 \item{cores}{Cores for the jackknife and bootstrap refits (\code{parallel::mclapply}).}
 }
 \value{
 An object of class \code{saereg}: \code{global}, \code{features}, \code{joint} (tibbles), \code{beta}
-(dimensions x terms), \code{weights} (C), \code{V_alpha} (per term), \code{null} (the test's draws of
-the statistic, draws x terms), and the settings.
+(dimensions x terms), \code{V_alpha} (per term), \code{null} (the test's draws of the statistic,
+draws x terms), and the settings.
 }
 \description{
 Regresses the document embeddings on a design (OLS, covariates and absorbed fixed effects
 allowed), takes the coefficient vector of the term of interest, beta, as the effect on the
 texts, tests it globally, and decomposes it onto the decoder directions W of a sparse
-autoencoder trained on other texts. Every quantity is linear in the documents: beta =
-t(E) C, where C, the term's row weights, comes from the design alone (Frisch-Waugh-Lovell).
+autoencoder trained on other texts. Every estimate is a linear combination of the documents,
+computed from the design alone (Frisch-Waugh-Lovell).
 }
 \details{
 \strong{Overall effect} (\code{global}, one row per term):

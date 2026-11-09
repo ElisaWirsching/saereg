@@ -3,8 +3,8 @@
 #' Regresses the document embeddings on a design (OLS, covariates and absorbed fixed effects
 #' allowed), takes the coefficient vector of the term of interest, beta, as the effect on the
 #' texts, tests it globally, and decomposes it onto the decoder directions W of a sparse
-#' autoencoder trained on other texts. Every quantity is linear in the documents: beta =
-#' t(E) C, where C, the term's row weights, comes from the design alone (Frisch-Waugh-Lovell).
+#' autoencoder trained on other texts. Every estimate is a linear combination of the documents,
+#' computed from the design alone (Frisch-Waugh-Lovell).
 #'
 #' **Overall effect** (`global`, one row per term):
 #' * `norm_sq_raw` = ||beta||^2, biased upward by sampling noise; `norm_sq_cor` subtracts the
@@ -55,11 +55,11 @@
 #' @param activations Optional SAE activations (documents x M, rows as `E`).
 #' @param labels Optional labels of the M directions.
 #' @param rows Optional row of `E` for each row of `data`, when rows share an embedding (e.g.
-#'   a member-day's mean in several stacks); their weights are summed per embedding.
+#'   a member-day's mean in several stacks).
 #' @param cores Cores for the jackknife and bootstrap refits (`parallel::mclapply`).
 #' @return An object of class `saereg`: `global`, `features`, `joint` (tibbles), `beta`
-#'   (dimensions x terms), `weights` (C), `V_alpha` (per term), `null` (the test's draws of
-#'   the statistic, draws x terms), and the settings.
+#'   (dimensions x terms), `V_alpha` (per term), `null` (the test's draws of the statistic,
+#'   draws x terms), and the settings.
 #' @export
 saereg <- function(formula, data, W, term = NULL, cluster = NULL, strata = NULL,
                    test = c("permutation", "bootstrap"), draws = 999L, seed = 7L,
@@ -278,7 +278,7 @@ saereg <- function(formula, data, W, term = NULL, cluster = NULL, strata = NULL,
                  n_dropped = sum(!keep), test = test, draws = draws, seed = seed,
                  level = level, global = do.call(rbind, glob),
                  features = do.call(rbind, feat), joint = do.call(rbind, jnt),
-                 beta = beta, weights = pt$C, V_alpha = V_alpha, null = stat),
+                 beta = beta, V_alpha = V_alpha, null = stat),
             class = "saereg")
 }
 

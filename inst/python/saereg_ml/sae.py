@@ -3,6 +3,7 @@
 import contextlib
 import json
 import os
+from importlib.metadata import version
 
 import numpy as np
 import pandas as pd
@@ -10,6 +11,16 @@ import torch
 
 from .config import run_dir
 from .io import read_matrix, write_matrix, write_manifest, refuse_overwrite
+
+HYPOTHESAES_TESTED = "2.0.0"   # the version the SAE training was verified with
+# Training settings, passed explicitly so that a change of the package's defaults cannot change
+# the SAE (decided 2026-11-09, EW). They are hypothesaes 2.0.0's train_sae() defaults; aux_k is
+# set in fit_sae() to min(2K, M), the value its default None resolves to. No validation set, so
+# patience never applies.
+TRAIN_SETTINGS = {"batch_size": 512, "learning_rate": 5e-4, "n_epochs": 100, "aux_coef": 1 / 32,
+                  "multi_k": None, "multi_coef": 0.0, "dead_neuron_threshold_steps": 256,
+                  "batch_topk": False, "matryoshka_prefix_lengths": None, "val_embeddings": None,
+                  "patience": 3, "clip_grad": 1.0}
 
 
 def load_train(cfg):
@@ -37,19 +48,25 @@ def fit_sae(cfg, force=False):
     refuse_overwrite([out_pt, out_dec], force)
     _, _, E_tr = load_train(cfg)
     s = cfg["sae"]
+    settings = {**TRAIN_SETTINGS, "aux_k": min(2 * s["K"], s["M"])}
+    hs_version = version("hypothesaes")
+    if hs_version != HYPOTHESAES_TESTED:
+        print(f"[warning] hypothesaes {hs_version} is installed; the SAE training was verified "
+              f"with {HYPOTHESAES_TESTED}, so results may differ.")
 
     np.random.seed(s["seed"])
     torch.manual_seed(s["seed"])
     with contextlib.redirect_stdout(open(os.devnull, "w")):
         sae = train_sae(embeddings=E_tr, M=s["M"], K=s["K"], checkpoint_dir=None,
-                        overwrite_checkpoint=True, show_progress=False)
+                        overwrite_checkpoint=True, show_progress=False, **settings)
 
     W = sae.decoder.weight.detach().cpu().numpy()                    # D x M
     W = W / (np.linalg.norm(W, axis=0, keepdims=True) + 1e-12)       # as in 5g
     sae.save(str(out_pt))
     write_matrix(out_dec, np.arange(W.shape[0]), W, id_name="dim", prefix="f")
     meta = {"M": s["M"], "K": s["K"], "seed": s["seed"], "n_train": int(E_tr.shape[0]),
-            "device": str(sae.device), "dims": int(W.shape[0])}
+            "device": str(sae.device), "dims": int(W.shape[0]),
+            "hypothesaes": hs_version, "training": settings}
     run_dir(cfg, "sae", "meta.json").write_text(json.dumps(meta, indent=2))
     write_manifest(cfg, "sae", [out_pt, out_dec], meta)
     print(f"SAE: M={s['M']}, K={s['K']}, trained on {E_tr.shape[0]} documents ({sae.device})")

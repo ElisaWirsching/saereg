@@ -141,9 +141,11 @@ def label_features(cfg, force=False, dry_run=False):
 
     out = run_dir(cfg, "labels", "labels.csv")
     refuse_overwrite([out], force)
-    labels = pd.DataFrame({"feature": range(len(prompts)), "label": ask_labeller(prompts, lab)})
+    used = []
+    labels = pd.DataFrame({"feature": range(len(prompts)),
+                           "label": ask_labeller(prompts, lab, used)})
     labels.to_csv(out, index=False)
-    write_manifest(cfg, "label", [out], {"labels": {k: lab[k] for k in lab}})
+    write_manifest(cfg, "label", [out], {"labels": {k: lab[k] for k in lab}, "model_used": used})
     print(labels.to_string(index=False))
     over = labels["label"].str.split().str.len() > int(lab["max_label_words"])
     if over.any():
@@ -152,8 +154,10 @@ def label_features(cfg, force=False, dry_run=False):
     return labels
 
 
-def ask_labeller(prompts, lab):
+def ask_labeller(prompts, lab, used=None):
     """Send each prompt to the labelling model; return the labels (list of strings).
+
+    `used`, if given, is a list that receives the model the API reports for each prompt.
 
     Calls the OpenAI API (needs OPENAI_KEY_SAE). A reply without a LABEL line is kept
     whole, with a note.
@@ -167,6 +171,8 @@ def ask_labeller(prompts, lab):
     for j, p in enumerate(prompts):
         r = client.chat.completions.create(model=lab["model"], temperature=lab["temperature"],
                                            messages=[{"role": "user", "content": p}])
+        if used is not None:
+            used.append(r.model)
         text = r.choices[0].message.content.strip()
         m = re.search(r'LABEL:\s*"?(.*?)"?\s*$', text, flags=re.S)
         if m is None:
@@ -283,7 +289,8 @@ def label_fidelity(cfg, force=False, dry_run=False, labels=None, suffix="", data
     out_a = run_dir(cfg, "labels", f"fidelity_annotations{suffix}.csv")
     out_f = run_dir(cfg, "labels", f"label_fidelity{suffix}.csv")
     refuse_overwrite([out_a, out_f], force)
-    ann = smp.drop(columns="row").assign(answer=ask_reader(prompts, fid))
+    used = []
+    ann = smp.drop(columns="row").assign(answer=ask_reader(prompts, fid, used))
     ann.to_csv(out_a, index=False)
     res = []
     for j, a in ann.groupby("feature"):
@@ -299,13 +306,16 @@ def label_fidelity(cfg, force=False, dry_run=False, labels=None, suffix="", data
                     "precision": prec, "recall": rec, "f1": f1})
     res = pd.DataFrame(res)
     res.to_csv(out_f, index=False)
-    write_manifest(cfg, f"fidelity{suffix}", [out_a, out_f], {"fidelity": {k: fid[k] for k in fid}})
+    write_manifest(cfg, f"fidelity{suffix}", [out_a, out_f],
+                   {"fidelity": {k: fid[k] for k in fid}, "model_used": sorted(set(used))})
     print(res.drop(columns="label").to_string(index=False))
     return res
 
 
-def ask_reader(prompts, fid):
+def ask_reader(prompts, fid, used=None):
     """Send each fidelity request to the reading model; return "YES", "NO" or None.
+
+    `used`, if given, is a list that receives the model the API reports for each request.
 
     Calls the OpenAI API (needs OPENAI_KEY_SAE). A reply that is neither is kept as None,
     with a count at the end.
@@ -319,6 +329,8 @@ def ask_reader(prompts, fid):
     for k, p in enumerate(prompts):
         r = client.chat.completions.create(model=fid["model"], temperature=fid["temperature"],
                                            messages=[{"role": "user", "content": p}])
+        if used is not None:
+            used.append(r.model)
         text = r.choices[0].message.content.strip().upper()
         answers.append("YES" if text.startswith("YES") else "NO" if text.startswith("NO")
                        else None)

@@ -92,7 +92,9 @@ dim(E)
 `train_sae()` trains the SAE on the rows marked `train` and returns its
 decoder directions `W` (one column per direction) and the activations of
 all texts. `M` is the number of directions and `K` the number active per
-text; the answers are short (32 words at the median), so `K = 2`.
+text; the answers are short (32 words at the median), so `K = 2`. The
+SAE is trained with the implementation in HypotheSAEs (Movva et
+al. 2025).
 
 ``` r
 sae <- train_sae(E, M = 7, K = 2, seed = 7, train = d$train)
@@ -340,6 +342,10 @@ saereg(E ~ treated_dem + treated_rep | unit_stack + day_stack, data = panel, W =
 Egami, N., Fong, C. J., Grimmer, J., Roberts, M. E., and Stewart, B. M.
 (2022). How to make causal inferences using texts. *Science Advances*,
 8(42).
+
+Movva, R., Peng, K., Garg, N., Kleinberg, J., and Pierson, E. (2025).
+Sparse autoencoders for hypothesis generation. *Proceedings of the 42nd
+International Conference on Machine Learning*.
 
 Wirsching, E. M. (2026). What moved? Interpretable decompositions of
 effects on text with sparse autoencoders. Working paper.

@@ -7,6 +7,7 @@
 embed_texts(
   texts,
   model = "text-embedding-3-large",
+  dimensions = NULL,
   dry_run = FALSE,
   dir = tempfile("saereg_embed_")
 )
@@ -16,12 +17,16 @@ embed_texts(
 
 \item{model}{OpenAI embedding model.}
 
+\item{dimensions}{Optional length of the embeddings, for models that can shorten them. By
+default nothing is sent and the model returns its full size.}
+
 \item{dry_run}{\code{TRUE} reports the number of tokens and requests without calling the API.}
 
 \item{dir}{Run directory for the inputs and outputs (a new temporary one by default).}
 }
 \value{
-A matrix, one row per text (unit length), or \code{NULL} on a dry run.
+A matrix, one row per text (unit length), with the model the API reports in
+\code{attr(, "model_used")}; \code{NULL} on a dry run.
 }
 \description{
 Texts longer than the model's input limit are split into chunks and their embeddings

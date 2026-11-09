@@ -64,6 +64,9 @@ def embed_texts(cfg, force=False, dry_run=False):
     out_docs, out_emb = run_dir(cfg, "documents.csv"), run_dir(cfg, "embeddings.parquet")
     src = cfg["embeddings"].get("import_cache")
     model = cfg["embeddings"]["model"]
+    dims = cfg["embeddings"].get("dimensions")
+    extra = {"dimensions": dims} if dims is not None else {}    # sent only when set
+    used = set()                                                # models the API reports
 
     if src is None and dry_run:
         pieces, n_tok, owner = _chunks(docs["text"].tolist(), model)
@@ -88,7 +91,8 @@ def embed_texts(cfg, force=False, dry_run=False):
         pieces, n_tok, owner = _chunks(docs["text"].tolist(), model)
         rows = []
         for a, b in _batches(pieces, n_tok):
-            resp = client.embeddings.create(input=pieces[a:b], model=model)
+            resp = client.embeddings.create(input=pieces[a:b], model=model, **extra)
+            used.add(resp.model)
             rows.extend(r.embedding for r in resp.data)
         C = np.asarray(rows, dtype=np.float64)
         E = np.zeros((len(docs), C.shape[1]))
@@ -99,6 +103,7 @@ def embed_texts(cfg, force=False, dry_run=False):
 
     docs.to_csv(out_docs, index=False)
     write_matrix(out_emb, docs["doc_id"], E, id_name="doc_id", prefix="e")
-    write_manifest(cfg, "embed", [out_docs, out_emb], {"source": source, "shape": list(E.shape)})
+    write_manifest(cfg, "embed", [out_docs, out_emb],
+                   {"source": source, "shape": list(E.shape), "model_used": sorted(used)})
     print(f"embeddings: {E.shape[0]} documents x {E.shape[1]} dims ({source})")
     return E

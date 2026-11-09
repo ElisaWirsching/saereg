@@ -17,12 +17,15 @@
 #'
 #' @param texts Character vector.
 #' @param model OpenAI embedding model.
+#' @param dimensions Optional length of the embeddings, for models that can shorten them. By
+#'   default nothing is sent and the model returns its full size.
 #' @param dry_run `TRUE` reports the number of tokens and requests without calling the API.
 #' @param dir Run directory for the inputs and outputs (a new temporary one by default).
-#' @return A matrix, one row per text (unit length), or `NULL` on a dry run.
+#' @return A matrix, one row per text (unit length), with the model the API reports in
+#'   `attr(, "model_used")`; `NULL` on a dry run.
 #' @export
-embed_texts <- function(texts, model = "text-embedding-3-large", dry_run = FALSE,
-                        dir = tempfile("saereg_embed_")) {
+embed_texts <- function(texts, model = "text-embedding-3-large", dimensions = NULL,
+                        dry_run = FALSE, dir = tempfile("saereg_embed_")) {
   if (anyNA(texts)) stop("`texts` has missing values")
   dir.create(dir, recursive = TRUE, showWarnings = FALSE)
   ids <- sprintf("d%07d", seq_along(texts))
@@ -30,7 +33,8 @@ embed_texts <- function(texts, model = "text-embedding-3-large", dry_run = FALSE
                    file.path(dir, "texts.csv"), row.names = FALSE)
   cfg <- list(documents = list(file = normalizePath(file.path(dir, "texts.csv")), id = "id",
                                text = "text", cells = list(all = list(all = "all"))),
-              embeddings = list(model = model))
+              embeddings = list(model = model, dimensions = if (!is.null(dimensions))
+                as.integer(dimensions)))
   out <- run_python(c("-m", "saereg_ml", "embed", "--config", write_run(dir, cfg),
                       if (dry_run) "--dry-run"))
   if (dry_run) {
@@ -39,14 +43,25 @@ embed_texts <- function(texts, model = "text-embedding-3-large", dry_run = FALSE
   }
   emb <- arrow::read_parquet(file.path(dir, "embeddings.parquet"))
   stopifnot(identical(as.character(emb$doc_id), ids))
-  unname(as.matrix(emb[, setdiff(names(emb), "doc_id")]))
+  E <- unname(as.matrix(emb[, setdiff(names(emb), "doc_id")]))
+  attr(E, "model_used") <- unlist(yaml::read_yaml(file.path(dir, "manifest_embed.json"))$model_used)
+  E
 }
 
 #' Train a sparse autoencoder on embeddings
 #'
-#' A TopK SAE (`hypothesaes`, Python stage `sae`) trained on the rows marked `train`; the
-#' trained encoder then gives the activations of every row. NumPy and torch are seeded with
-#' `seed` right before training, so a run on the same device reproduces the SAE.
+#' A TopK SAE trained on the rows marked `train` with the implementation in HypotheSAEs
+#' (Movva et al. 2025; Python stage `sae`); the trained encoder then gives the activations of
+#' every row. NumPy and torch are seeded with `seed` right before training, so a run on the
+#' same device reproduces the SAE. The training settings are fixed: 100 epochs, batch size 512,
+#' learning rate 5e-4, gradient clipping at 1, and an auxiliary loss for dead features (weight
+#' 1/32, `min(2K, M)` features, after 256 steps without firing). They are saved in the run's
+#' `sae/meta.json`. A warning is given if the installed `hypothesaes` is not version 2.0.0, the
+#' version these settings were verified with.
+#'
+#' @references Movva, R., Peng, K., Garg, N., Kleinberg, J. and Pierson, E. (2025). Sparse
+#'   autoencoders for hypothesis generation. *Proceedings of the 42nd International Conference
+#'   on Machine Learning*. <https://github.com/rmovva/HypotheSAEs>
 #'
 #' @param E Embeddings (documents x dimensions).
 #' @param M Number of features (decoder directions).
@@ -62,7 +77,9 @@ train_sae <- function(E, M, K, seed = 7L, train = rep(TRUE, nrow(E)),
                       dir = tempfile("saereg_sae_")) {
   stopifnot(is.logical(train), length(train) == nrow(E), any(train))
   cfg <- list(sae = list(M = as.integer(M), K = as.integer(K), seed = as.integer(seed)))
-  run_python(c("-m", "saereg_ml", "sae", "--config", write_run(dir, cfg, E, train)))
+  out <- run_python(c("-m", "saereg_ml", "sae", "--config", write_run(dir, cfg, E, train)))
+  w <- grep("^\\[warning\\] ", out, value = TRUE)              # e.g. another hypothesaes version
+  if (length(w)) warning(sub("^\\[warning\\] ", "", w), call. = FALSE)
   dec <- arrow::read_parquet(file.path(dir, "sae", "decoder.parquet"))
   act <- arrow::read_parquet(file.path(dir, "sae", "activations.parquet"))
   list(W = unname(as.matrix(dec[, setdiff(names(dec), "dim")])),
@@ -88,9 +105,9 @@ train_sae <- function(E, M, K, seed = 7L, train = rep(TRUE, nrow(E)),
 #'   `max_words` (256), `max_label_words` (15), `temperature` (0), `n_top` and `n_lower` (50
 #'   each, fidelity).
 #' @param dir Run directory (a new temporary one by default).
-#' @return A tibble with `feature` (from 0), `label` and `prompt` (the prompt sent to the
-#'   model), plus `precision`, `recall`, `f1` with `fidelity = TRUE`; on a dry run, the prompts
-#'   (character vector).
+#' @return A tibble with `feature` (from 0), `label`, `prompt` (the prompt sent to the model)
+#'   and `model_used` (the model version the API reports), plus `precision`, `recall`, `f1` and
+#'   `fidelity_model_used` with `fidelity = TRUE`; on a dry run, the prompts (character vector).
 #' @export
 label_features <- function(texts, E, W, fidelity = FALSE, dry_run = FALSE, model = "gpt-4.1",
                            seed = 7L, settings = list(), dir = tempfile("saereg_label_")) {
@@ -120,11 +137,14 @@ label_features <- function(texts, E, W, fidelity = FALSE, dry_run = FALSE, model
   out <- tibble::as_tibble(utils::read.csv(file.path(dir, "labels", "labels.csv")))
   stopifnot(identical(out$feature, seq_len(ncol(W)) - 1L))
   out$prompt <- prompts
+  out$model_used <- unlist(yaml::read_yaml(file.path(dir, "manifest_label.json"))$model_used)
   if (fidelity) {
     run_python(c("-m", "saereg_ml", "fidelity", "--config", cfg_file))
     fid <- utils::read.csv(file.path(dir, "labels", "label_fidelity.csv"))
     out <- tibble::as_tibble(merge(out, fid[c("feature", "precision", "recall", "f1")],
                                    by = "feature", sort = TRUE))
+    out$fidelity_model_used <- paste(unlist(yaml::read_yaml(
+      file.path(dir, "manifest_fidelity.json"))$model_used), collapse = ", ")
   }
   out
 }

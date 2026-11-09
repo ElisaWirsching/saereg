@@ -32,7 +32,17 @@ A list: \code{W} (dimensions x M, unit-length decoder directions), \code{activat
 (documents x M), \code{dir}.
 }
 \description{
-A TopK SAE (\code{hypothesaes}, Python stage \code{sae}) trained on the rows marked \code{train}; the
-trained encoder then gives the activations of every row. NumPy and torch are seeded with
-\code{seed} right before training, so a run on the same device reproduces the SAE.
+A TopK SAE trained on the rows marked \code{train} with the implementation in HypotheSAEs
+(Movva et al. 2025; Python stage \code{sae}); the trained encoder then gives the activations of
+every row. NumPy and torch are seeded with \code{seed} right before training, so a run on the
+same device reproduces the SAE. The training settings are fixed: 100 epochs, batch size 512,
+learning rate 5e-4, gradient clipping at 1, and an auxiliary loss for dead features (weight
+1/32, \verb{min(2K, M)} features, after 256 steps without firing). They are saved in the run's
+\code{sae/meta.json}. A warning is given if the installed \code{hypothesaes} is not version 2.0.0, the
+version these settings were verified with.
+}
+\references{
+Movva, R., Peng, K., Garg, N., Kleinberg, J. and Pierson, E. (2025). Sparse
+autoencoders for hypothesis generation. \emph{Proceedings of the 42nd International Conference
+on Machine Learning}. \url{https://github.com/rmovva/HypotheSAEs}
 }

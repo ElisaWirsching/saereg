@@ -24,7 +24,7 @@ remotes::install_github("ElisaWirsching/saereg")
 
 `saereg()` needs only R. Steps 1 to 3 run the package's Python stages
 (`inst/python/saereg_ml`) and need a Python with `numpy`, `pandas`, `pyarrow`, `pyyaml`,
-`torch`, `hypothesaes`, `tiktoken` and `openai`:
+`torch`, `hypothesaes` (version 2.0.0), `tiktoken` and `openai`:
 
 `saereg` looks for such a Python by itself; `saereg_python()` shows which one it uses. To choose
 another: `options(saereg.python = "/path/to/python3")`, or the environment variable
@@ -57,6 +57,11 @@ The [getting-started article](https://github.com/ElisaWirsching/saereg/blob/main
 
 Wirsching, E. M. (2026). What moved? Interpretable decompositions of effects on text with
 sparse autoencoders. Working paper.
+
+`train_sae()` uses the SAE implementation in [HypotheSAEs](https://github.com/rmovva/HypotheSAEs),
+and the label-fidelity check in `label_features()` follows the same paper. If you use them, please
+also cite Movva, R., Peng, K., Garg, N., Kleinberg, J., and Pierson, E. (2025). Sparse autoencoders
+for hypothesis generation. *Proceedings of the 42nd International Conference on Machine Learning*.
 
 ## Licence and data
 

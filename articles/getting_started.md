@@ -173,15 +173,23 @@ returned.
 
 ``` r
 print(data.frame(feature = 0:6, f1 = round(egami$fidelity$f1, 2),
-                 label = substr(egami$labels, 1, 70)), right = FALSE)
-#>   feature f1   label                                                                 
-#> 1 0       0.60 mentions considering additional circumstances or details before decidi
-#> 2 1       0.38 mentions following legal procedures or laws as justification for depor
-#> 3 2       0.93 emphasizes the person's violent or criminal history as justification f
-#> 4 3       0.20 explicitly states that breaking the law requires imprisonment or punis
-#> 5 4       0.77 emphasizes avoiding U.S. taxpayer expense by deporting rather than imp
-#> 6 5       0.29 explicitly argue that prison is too harsh and only deportation is appr
-#> 7 6       0.68 asks for or considers the immigrant’s personal reasons or circumstance
+                 label = substr(egami$labels, 1, 150)), right = FALSE)
+#>   feature f1  
+#> 1 0       0.60
+#> 2 1       0.38
+#> 3 2       0.93
+#> 4 3       0.20
+#> 5 4       0.77
+#> 6 5       0.29
+#> 7 6       0.68
+#>   label                                                                                                    
+#> 1 mentions considering additional circumstances or details before deciding on punishment                   
+#> 2 mentions following legal procedures or laws as justification for deportation or punishment               
+#> 3 emphasizes the person's violent or criminal history as justification for harsher punishment or exclusion 
+#> 4 explicitly states that breaking the law requires imprisonment or punishment, regardless of circumstances 
+#> 5 emphasizes avoiding U.S. taxpayer expense by deporting rather than imprisoning the individual in the U.S.
+#> 6 explicitly argue that prison is too harsh and only deportation is appropriate                            
+#> 7 asks for or considers the immigrant’s personal reasons or circumstances for entering the country
 ```
 
 ## Step 4: estimate and decompose the effect

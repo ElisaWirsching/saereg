@@ -88,8 +88,9 @@ train_sae <- function(E, M, K, seed = 7L, train = rep(TRUE, nrow(E)),
 #'   `max_words` (256), `max_label_words` (15), `temperature` (0), `n_top` and `n_lower` (50
 #'   each, fidelity).
 #' @param dir Run directory (a new temporary one by default).
-#' @return A tibble with `feature` (from 0) and `label`, plus `precision`, `recall`, `f1`
-#'   with `fidelity = TRUE`; on a dry run, the prompts (character vector).
+#' @return A tibble with `feature` (from 0), `label` and `prompt` (the prompt sent to the
+#'   model), plus `precision`, `recall`, `f1` with `fidelity = TRUE`; on a dry run, the prompts
+#'   (character vector).
 #' @export
 label_features <- function(texts, E, W, fidelity = FALSE, dry_run = FALSE, model = "gpt-4.1",
                            seed = 7L, settings = list(), dir = tempfile("saereg_label_")) {
@@ -104,15 +105,21 @@ label_features <- function(texts, E, W, fidelity = FALSE, dry_run = FALSE, model
                               n_lower = st$n_lower, max_words = st$max_words,
                               seed = as.integer(seed)))
   cfg_file <- write_run(dir, cfg, E, rep(TRUE, nrow(E)), texts, W)
-  run_python(c("-m", "saereg_ml", "label", "--config", cfg_file, if (dry_run) "--dry-run"))
-  if (dry_run) {
-    pd <- file.path(dir, "labels", "prompts_dryrun")
-    return(vapply(seq_len(ncol(W)) - 1L, function(j) {         # the files as written
-      f <- file.path(pd, sprintf("feature_%d.txt", j))
-      readChar(f, file.info(f)$size, useBytes = TRUE)
-    }, character(1)))
-  }
+  # The prompts come from a dry run in both modes: the stage builds them with the same seeded
+  # draw whether it writes them out or sends them, so these are the prompts the model receives.
+  run_python(c("-m", "saereg_ml", "label", "--config", cfg_file, "--dry-run"))
+  pd <- file.path(dir, "labels", "prompts_dryrun")
+  prompts <- vapply(seq_len(ncol(W)) - 1L, function(j) {       # the files as written
+    f <- file.path(pd, sprintf("feature_%d.txt", j))
+    x <- readChar(f, file.info(f)$size, useBytes = TRUE)
+    Encoding(x) <- "UTF-8"
+    x
+  }, character(1))
+  if (dry_run) return(prompts)
+  run_python(c("-m", "saereg_ml", "label", "--config", cfg_file))
   out <- tibble::as_tibble(utils::read.csv(file.path(dir, "labels", "labels.csv")))
+  stopifnot(identical(out$feature, seq_len(ncol(W)) - 1L))
+  out$prompt <- prompts
   if (fidelity) {
     run_python(c("-m", "saereg_ml", "fidelity", "--config", cfg_file))
     fid <- utils::read.csv(file.path(dir, "labels", "label_fidelity.csv"))

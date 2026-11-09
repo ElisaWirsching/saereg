@@ -36,8 +36,9 @@ each, fidelity).}
 \item{dir}{Run directory (a new temporary one by default).}
 }
 \value{
-A tibble with \code{feature} (from 0) and \code{label}, plus \code{precision}, \code{recall}, \code{f1}
-with \code{fidelity = TRUE}; on a dry run, the prompts (character vector).
+A tibble with \code{feature} (from 0), \code{label} and \code{prompt} (the prompt sent to the
+model), plus \code{precision}, \code{recall}, \code{f1} with \code{fidelity = TRUE}; on a dry run, the prompts
+(character vector).
 }
 \description{
 For each direction w_j, the texts are ranked by their score e_i'w_j; the model sees

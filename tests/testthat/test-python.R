@@ -39,3 +39,37 @@ test_that("saereg_python() replaces a Python without the modules by one that has
   expect_false(identical(p, "/no/such/python3"))
   expect_identical(getOption("saereg.python"), p)
 })
+
+test_that("label_features: an active run returns the prompts it sent", {
+  skip_if_not(py_ok(), "no Python with torch and hypothesaes")
+  set.seed(3)
+  E <- matrix(rnorm(60 * 8), 60, 8)
+  W <- apply(matrix(rnorm(8 * 3), 8, 3), 2, function(w) w / sqrt(sum(w^2)))
+  texts <- paste("text number", seq_len(60))
+  dry <- label_features(texts, E, W, dry_run = TRUE)
+  # The two API stages are replaced by files of the same layout; everything else runs for real
+  real <- run_python
+  api_calls <- character()
+  local_mocked_bindings(run_python = function(args) {
+    stage <- if (length(args) > 2L) args[3] else ""
+    if (!stage %in% c("label", "fidelity") || "--dry-run" %in% args) return(real(args))
+    api_calls <<- c(api_calls, stage)
+    lab_dir <- file.path(dirname(args[5]), "labels")
+    if (stage == "label") {
+      write.csv(data.frame(feature = 0:2, label = paste("label", 0:2)),
+                file.path(lab_dir, "labels.csv"), row.names = FALSE)
+    } else {
+      write.csv(data.frame(feature = 0:2, precision = 0.5, recall = 0.5, f1 = 0.5),
+                file.path(lab_dir, "label_fidelity.csv"), row.names = FALSE)
+    }
+    character()
+  })
+  lab <- label_features(texts, E, W)
+  expect_identical(names(lab), c("feature", "label", "prompt"))
+  expect_identical(lab$prompt, dry)
+  expect_identical(api_calls, "label")
+  fid <- label_features(texts, E, W, fidelity = TRUE)
+  expect_identical(names(fid), c("feature", "label", "prompt", "precision", "recall", "f1"))
+  expect_identical(fid$prompt, dry)
+  expect_identical(api_calls, c("label", "label", "fidelity"))
+})
